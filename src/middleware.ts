@@ -1,27 +1,23 @@
-
 import arcjet, { createMiddleware, detectBot, shield, slidingWindow } from "@arcjet/next";
 import { NextResponse, NextRequest, NextFetchEvent } from "next/server";
 import { logSecurityEvent } from "@/lib/security";
 
 export const config = {
-    // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
+    // Matcher que ignora archivos estáticos y del sistema
     matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-// Configure Arcjet
+// Configuración de Arcjet
 const aj = arcjet({
-    key: process.env.ARCJET_KEY || "aj_mock_key", // Fallback for build
+    key: process.env.ARCJET_KEY || "aj_mock_key",
     rules: [
-        // 1. Shield: Blocks SQLi, XSS, and other common attacks
         shield({
-            mode: "LIVE", // will block requests. Use "DRY_RUN" to log only.
+            mode: "LIVE",
         }),
-        // 2. Bot Detection: Blocks automated clients
         detectBot({
             mode: "LIVE",
-            allow: [], // Block all detected bots
+            allow: [],
         }),
-        // 3. Rate Limiting: 100 requests per 10 minutes per IP
         slidingWindow({
             mode: "LIVE",
             interval: "10m",
@@ -30,13 +26,15 @@ const aj = arcjet({
     ],
 });
 
-// Middleware function
-// @ts-ignore - Arcjet type definition mismatch with Next.js 16
+// @ts-ignore - Salto de error de tipos conocido en el middleware de Arcjet con Next.js 15/16
 export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => {
     const decision = await aj.protect(req);
-    const fingerprint = (decision as any).fingerprint || "unknown";
 
-    // Logging logic for Denied requests
+    // Extracción segura del fingerprint (evita errores de objeto undefined)
+    const fingerprint = typeof (decision as any).fingerprint === 'string'
+        ? (decision as any).fingerprint
+        : "unknown";
+
     if (decision.isDenied()) {
         let eventType: "Bot" | "RateLimit" | "SQLi" | "AccessControl" = "AccessControl";
         let riskScore = 10;
@@ -52,14 +50,17 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
             riskScore = 50;
         }
 
-        // Fire and forget logging
+        // Lógica de Telemetría Blindada
         try {
+            // CORRECCIÓN CRÍTICA: ArcjetIpDetails a String
+            const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
+
             await logSecurityEvent({
-                fingerprint,
+                fingerprint: fingerprint,
                 eventType,
                 riskScore,
                 action: "Blocked",
-                ip: String(decision.ip),
+                ip: ipAddress,
                 location: "Unknown",
                 payload: req.url,
             });
@@ -67,12 +68,15 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
             console.error("Middleware Logging Error:", e);
         }
 
-        return NextResponse.json({ error: "Active Defense Triggered", reason: decision.reason }, { status: 403 });
+        return NextResponse.json(
+            { error: "Active Defense Triggered", reason: decision.reason },
+            { status: 403 }
+        );
     }
 
-    // Allowed Request - Pass fingerprint to headers for UI
+    // Petición Permitida - Inyectar header de identidad para la UI
     const res = await next();
-    if (res) {
+    if (res instanceof NextResponse) {
         res.headers.set("x-arcjet-fingerprint", fingerprint);
     }
     return res;
