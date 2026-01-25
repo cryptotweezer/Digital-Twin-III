@@ -8,15 +8,15 @@ export const config = {
 };
 
 export async function middleware(req: NextRequest, ctx: NextFetchEvent) {
-    // 1. Extreme Key Validation
-    const ajKey = process.env.ARCJET_KEY;
-    if (!ajKey || ajKey === 'aj_mock_key' || ajKey.length < 10) {
-        // console.log("Middleware Bypass: No valid ARCJET_KEY found.");
-        return NextResponse.next();
-    }
-
     try {
-        // 2. Instantiate Arcjet INSIDE middleware (Total Isolation)
+        // 1. Extreme Key Validation & Bypass
+        const ajKey = process.env.ARCJET_KEY;
+        if (!ajKey || ajKey === "aj_mock_key" || ajKey.length < 10) {
+            // Safety Valve: If key is missing/bad, bypass security entirely.
+            return NextResponse.next();
+        }
+
+        // 2. Lazy Initialization (Inside try block)
         const aj = arcjet({
             key: ajKey,
             rules: [
@@ -26,40 +26,29 @@ export async function middleware(req: NextRequest, ctx: NextFetchEvent) {
             ],
         });
 
+        // 3. Execution
         const decision = await aj.protect(req);
 
-        // Extracción segura del fingerprint
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fingerprint = typeof (decision as any).fingerprint === 'string'
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? (decision as any).fingerprint
-            : "unknown";
-
+        // 4. Decision Handling
         if (decision.isDenied()) {
-            /* 
-            // 3. Telemetry Commented out temporarily
-            const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
-            ctx.waitUntil(
-                fetch(new URL('/api/security/log', req.url), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'Blocked', ip: ipAddress })
-                }).catch(e => console.error("Telemetry Error:", e))
-            );
-            */
-
             return NextResponse.json(
                 { error: "Active Defense Triggered", reason: decision.reason },
                 { status: 403 }
             );
         }
 
+        // 5. Allowed - Inject Fingerprint
         const res = NextResponse.next();
-        res.headers.set("x-arcjet-fingerprint", fingerprint);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((decision as any).fingerprint) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            res.headers.set("x-arcjet-fingerprint", (decision as any).fingerprint);
+        }
         return res;
 
     } catch (error) {
-        console.error("Middleware Error:", error);
+        // 6. Fail-Safe: Absolute crash prevention
+        console.error("Critical Middleware Failure:", error);
         return NextResponse.next();
     }
 }
