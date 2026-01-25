@@ -111,3 +111,13 @@
 *   User to check Vercel deployment status after this push.
 
 
+### [2026-01-25] Rescue Protocol (Vercel Fix)
+**👤 Author**: Antigravity (Protocol Override)
+**🎯 Goal**: Fix `ArcjetIpDetails` type error blocking Vercel build.
+**✅ Accomplished**:
+*   Updated `src/middleware.ts` to use `String(decision.ip)`.
+*   Forced git sync (`push --force`) to `feature/workflow-protocol`.
+*   Verified commit hash update.
+**🚧 Next Steps**:
+*   Wait for Vercel GREEN status.
+*   Prepare Merge request to `main`.
