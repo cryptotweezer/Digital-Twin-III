@@ -50,9 +50,10 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
             riskScore = 50;
         }
 
-        // Lógica de Telemetría Blindada
+        // Lógica de Telemetría Blindada para Vercel
         try {
-            // CORRECCIÓN PARA VERCEL: Convertimos el objeto IP de Arcjet a String plano
+            // CORRECCIÓN ULTRA-SEGURA: Evitamos .toString() directo
+            // Si decision.ip existe, usamos String(). Si no, fallback a IP local.
             const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
 
             await logSecurityEvent({
@@ -74,7 +75,7 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
         );
     }
 
-    // Petición Permitida - Inyectar header para que la App reconozca al usuario
+    // Petición Permitida - Inyectar header de identidad
     const res = await next();
     if (res instanceof NextResponse) {
         res.headers.set("x-arcjet-fingerprint", fingerprint);
