@@ -121,3 +121,23 @@
 **🚧 Next Steps**:
 *   Wait for Vercel GREEN status.
 *   Prepare Merge request to `main`.
+### [2026-01-25] Vercel Middleware Size Fix (Part 1)
+**👤 Author**: Antigravity
+**🎯 Goal**: Offload DB logic from Edge Middleware to Serverless API to bypass 1MB limit.
+**✅ Accomplished**:
+*   Created `src/app/api/security/log/route.ts` to receive telemetry events.
+*   Verified API imports `src/lib/security.ts` correctly.
+**🚧 Next Steps**:
+*   Refactor `src/middleware.ts` to fetch this API instead of direct DB calls.
+
+### [2026-01-25] Vercel Middleware Size Fix (Part 2)
+**👤 Author**: Antigravity
+**🎯 Goal**: Decouple Middleware from DB to meet 1MB bundle limits.
+**✅ Accomplished**:
+*   Refactored `src/middleware.ts` to remove `@/lib/security` and DB imports.
+*   Implemented `fetch('/api/security/log')` inside `ctx.waitUntil()` for asynchronous, non-blocking logging.
+*    Ensured Middleware is now lightweight and compliant with Edge limits.
+**🚧 Next Steps**:
+*   Monitor Vercel Build.
+*   Resume Task 5 (Attack Lab).
+

@@ -1,23 +1,25 @@
 import arcjet, { createMiddleware, detectBot, shield, slidingWindow } from "@arcjet/next";
 import { NextResponse, NextRequest, NextFetchEvent } from "next/server";
-import { logSecurityEvent } from "@/lib/security";
 
 export const config = {
-    // Matcher que ignora archivos estáticos y del sistema
+    // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
     matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-// Configuración de Arcjet
+// Configure Arcjet
 const aj = arcjet({
-    key: process.env.ARCJET_KEY || "aj_mock_key",
+    key: process.env.ARCJET_KEY || "aj_mock_key", // Fallback for build
     rules: [
+        // 1. Shield: Blocks SQLi, XSS, and other common attacks
         shield({
-            mode: "LIVE",
+            mode: "LIVE", // will block requests. Use "DRY_RUN" to log only.
         }),
+        // 2. Bot Detection: Blocks automated clients
         detectBot({
             mode: "LIVE",
-            allow: [],
+            allow: [], // Block all detected bots
         }),
+        // 3. Rate Limiting: 100 requests per 10 minutes per IP
         slidingWindow({
             mode: "LIVE",
             interval: "10m",
@@ -26,7 +28,8 @@ const aj = arcjet({
     ],
 });
 
-// @ts-ignore - Salto de error de tipos conocido en el middleware de Arcjet con Next.js 15/16
+// Middleware function
+// @ts-ignore - Arcjet type definition mismatch with Next.js 16
 export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => {
     const decision = await aj.protect(req);
 
@@ -35,6 +38,7 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
         ? (decision as any).fingerprint
         : "unknown";
 
+    // Logging logic for Denied requests
     if (decision.isDenied()) {
         let eventType: "Bot" | "RateLimit" | "SQLi" | "AccessControl" = "AccessControl";
         let riskScore = 10;
@@ -51,23 +55,24 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
         }
 
         // Lógica de Telemetría Blindada para Vercel
-        try {
-            // CORRECCIÓN ULTRA-SEGURA: Evitamos .toString() directo
-            // Si decision.ip existe, usamos String(). Si no, fallback a IP local.
-            const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
+        // Offloaded to API to keep Middleware bundle small (<1MB)
+        const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
 
-            await logSecurityEvent({
-                fingerprint: fingerprint,
-                eventType,
-                riskScore,
-                action: "Blocked",
-                ip: ipAddress,
-                location: "Unknown",
-                payload: req.url,
-            });
-        } catch (e) {
-            console.error("Middleware Logging Error:", e);
-        }
+        ctx.waitUntil(
+            fetch(new URL("/api/security/log", req.url), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fingerprint,
+                    eventType,
+                    riskScore,
+                    action: "Blocked",
+                    ip: ipAddress,
+                    location: "Unknown",
+                    payload: req.url,
+                }),
+            }).catch(e => console.error("Telemetry Fetch Error:", e))
+        );
 
         return NextResponse.json(
             { error: "Active Defense Triggered", reason: decision.reason },
