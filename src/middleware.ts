@@ -1,104 +1,64 @@
-import arcjet, { createMiddleware, detectBot, shield, slidingWindow } from "@arcjet/next";
-import { NextResponse, NextRequest, NextFetchEvent } from "next/server";
+import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/next";
+import { NextResponse } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
 
 export const config = {
-    // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
+    // Matcher que ignora archivos estáticos, imágenes y favicon
     matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-// Configure Arcjet
-const aj = arcjet({
-    key: process.env.ARCJET_KEY || "aj_mock_key", // Fallback for build
-    rules: [
-        // 1. Shield: Blocks SQLi, XSS, and other common attacks
-        shield({
-            mode: "LIVE", // will block requests. Use "DRY_RUN" to log only.
-        }),
-        // 2. Bot Detection: Blocks automated clients
-        detectBot({
-            mode: "LIVE",
-            allow: [], // Block all detected bots
-        }),
-        // 3. Rate Limiting: 100 requests per 10 minutes per IP
-        slidingWindow({
-            mode: "LIVE",
-            interval: "10m",
-            max: 100,
-        }),
-    ],
-});
-
-// Middleware function
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - Arcjet type definition mismatch with Next.js 16
-export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+export async function middleware(req: NextRequest, ctx: NextFetchEvent) {
     try {
-        // 0. Fail-Safe: Bypass if Key is missing or invalid in Prod
-        // Allows site to function even if Security Layer fails
-        if (!process.env.ARCJET_KEY || process.env.ARCJET_KEY === "aj_mock_key") {
-            // Optional: Log warning if needed, but keep silent for users
-            return next();
+        // 1. Validación de Llave y Bypass de Seguridad
+        const ajKey = process.env.ARCJET_KEY;
+
+        // Válvula de seguridad: Si la llave falta, es corta o es la de prueba, 
+        // saltamos el escudo para evitar que la web se caiga (Error 500).
+        if (!ajKey || ajKey === "aj_mock_key" || ajKey.length < 10) {
+            return NextResponse.next();
         }
 
+        // 2. Inicialización "Perezosa" (Dentro del bloque try)
+        // Esto evita que el middleware explote si Arcjet no puede arrancar.
+        const aj = arcjet({
+            key: ajKey,
+            rules: [
+                shield({ mode: "LIVE" }),
+                detectBot({ mode: "LIVE", allow: [] }), // Bloquea todos los bots no autorizados
+                slidingWindow({ mode: "LIVE", interval: "10m", max: 100 }),
+            ],
+        });
+
+        // 3. Ejecución de la protección
         const decision = await aj.protect(req);
 
-        // Extracción segura del fingerprint
-        const fingerprint = typeof (decision as any).fingerprint === 'string' // eslint-disable-line @typescript-eslint/no-explicit-any
-            ? (decision as any).fingerprint // eslint-disable-line @typescript-eslint/no-explicit-any
-            : "unknown";
-
-        // Logging logic for Denied requests
+        // 4. Manejo de Bloqueos (Acceso denegado)
         if (decision.isDenied()) {
-            let eventType: "Bot" | "RateLimit" | "SQLi" | "AccessControl" = "AccessControl";
-            let riskScore = 10;
-
-            if (decision.reason.isBot()) {
-                eventType = "Bot";
-                riskScore = 30;
-            } else if (decision.reason.isRateLimit()) {
-                eventType = "RateLimit";
-                riskScore = 20;
-            } else if (decision.reason.isShield()) {
-                eventType = "SQLi";
-                riskScore = 50;
-            }
-
-            // Lógica de Telemetría Blindada para Vercel
-            // Offloaded to API to keep Middleware bundle small (<1MB)
-            const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
-
-            ctx.waitUntil(
-                fetch(new URL("/api/security/log", req.url), {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        fingerprint,
-                        eventType,
-                        riskScore,
-                        action: "Blocked",
-                        ip: ipAddress,
-                        location: "Unknown",
-                        payload: req.url,
-                    }),
-                }).catch(e => console.error("Telemetry Fetch Error:", e))
-            );
-
             return NextResponse.json(
-                { error: "Active Defense Triggered", reason: decision.reason },
+                { 
+                    error: "Active Defense Triggered", 
+                    reason: decision.reason 
+                },
                 { status: 403 }
             );
         }
 
-        // Petición Permitida - Inyectar header de identidad
-        const res = await next();
-        if (res instanceof NextResponse) {
-            res.headers.set("x-arcjet-fingerprint", fingerprint);
+        // 5. Acceso Permitido - Inyectamos el Fingerprint en los headers
+        const res = NextResponse.next();
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((decision as any).fingerprint) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            res.headers.set("x-arcjet-fingerprint", (decision as any).fingerprint);
         }
+        
         return res;
+
     } catch (error) {
-        // Critical Fail-Safe Protocol
-        // If middleware crashes, log error internally but allow request to proceed
-        console.error("Middleware Error:", error);
-        return await next();
+        // 6. Fail-Safe Absoluto: Prevención de caída total
+        // Si el middleware falla internamente, permitimos que el usuario pase 
+        // pero dejamos rastro en los logs de Vercel para investigar.
+        console.error("Critical Middleware Failure (Fail-Safe Triggered):", error);
+        return NextResponse.next();
     }
-});
+}
