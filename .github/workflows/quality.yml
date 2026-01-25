@@ -31,9 +31,9 @@ jobs:
         # Temporary: lockfile may change during initial setup (Week 1)
 
       - name: 🔍 Lint Check
-        run: pnpm lint || true
-        # TODO (Week 2): Remove soft-fail once Next.js is initialized
+        run: pnpm lint
+        # Strict linting enforced
 
       - name: 🏗️ Build Test
-        run: pnpm build || true
-        # TODO (Week 2): Enforce build success as a hard gate
+        run: pnpm build
+        # Strict build enforced

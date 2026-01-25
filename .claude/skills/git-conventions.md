@@ -49,6 +49,12 @@ We use a strict Feature Branch workflow. **NEVER commit directly to `main`**.
     *   If the local build fails, do NOT push.
 4.  **Attribution**: Always ask the user for their **Team Member Name** if you don't know it.
 
+## Finalización de Tarea
+Cada vez que termines un cambio:
+1.  Haz push a tu rama de característica (`git push origin feature/nombre-tarea`).
+2.  **Informa al usuario**: "He subido los cambios a la rama [nombre]. Ya puedes ver la solicitud en la pestaña de Pull Requests de GitHub para tu revisión y aprobación".
+3.  **Sin links**: No generes links externos, el flujo nativo de GitHub notificará al usuario.
+
 ## Example Scenario
 *   *Task*: Add a new button.
 *   *Team Member*: Andres
