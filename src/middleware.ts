@@ -1,7 +1,5 @@
-
 import arcjet, { createMiddleware, detectBot, shield, slidingWindow } from "@arcjet/next";
 import { NextResponse, NextRequest, NextFetchEvent } from "next/server";
-import { logSecurityEvent } from "@/lib/security";
 
 export const config = {
     // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
@@ -34,7 +32,11 @@ const aj = arcjet({
 // @ts-ignore - Arcjet type definition mismatch with Next.js 16
 export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => {
     const decision = await aj.protect(req);
-    const fingerprint = (decision as any).fingerprint || "unknown";
+
+    // Extracción segura del fingerprint
+    const fingerprint = typeof (decision as any).fingerprint === 'string'
+        ? (decision as any).fingerprint
+        : "unknown";
 
     // Logging logic for Denied requests
     if (decision.isDenied()) {
@@ -52,27 +54,35 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
             riskScore = 50;
         }
 
-        // Fire and forget logging
-        try {
-            await logSecurityEvent({
-                fingerprint,
-                eventType,
-                riskScore,
-                action: "Blocked",
-                ip: String(decision.ip),
-                location: "Unknown",
-                payload: req.url,
-            });
-        } catch (e) {
-            console.error("Middleware Logging Error:", e);
-        }
+        // Lógica de Telemetría Blindada para Vercel
+        // Offloaded to API to keep Middleware bundle small (<1MB)
+        const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
 
-        return NextResponse.json({ error: "Active Defense Triggered", reason: decision.reason }, { status: 403 });
+        ctx.waitUntil(
+            fetch(new URL("/api/security/log", req.url), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fingerprint,
+                    eventType,
+                    riskScore,
+                    action: "Blocked",
+                    ip: ipAddress,
+                    location: "Unknown",
+                    payload: req.url,
+                }),
+            }).catch(e => console.error("Telemetry Fetch Error:", e))
+        );
+
+        return NextResponse.json(
+            { error: "Active Defense Triggered", reason: decision.reason },
+            { status: 403 }
+        );
     }
 
-    // Allowed Request - Pass fingerprint to headers for UI
+    // Petición Permitida - Inyectar header de identidad
     const res = await next();
-    if (res) {
+    if (res instanceof NextResponse) {
         res.headers.set("x-arcjet-fingerprint", fingerprint);
     }
     return res;
