@@ -29,13 +29,14 @@ const aj = arcjet({
 });
 
 // Middleware function
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - Arcjet type definition mismatch with Next.js 16
-export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => {
+export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const decision = await aj.protect(req);
 
     // Extracción segura del fingerprint
-    const fingerprint = typeof (decision as any).fingerprint === 'string'
-        ? (decision as any).fingerprint
+    const fingerprint = typeof (decision as any).fingerprint === 'string' // eslint-disable-line @typescript-eslint/no-explicit-any
+        ? (decision as any).fingerprint // eslint-disable-line @typescript-eslint/no-explicit-any
         : "unknown";
 
     // Logging logic for Denied requests
