@@ -115,7 +115,7 @@
 **👤 Author**: Antigravity (Protocol Override)
 **🎯 Goal**: Fix `ArcjetIpDetails` type error blocking Vercel build.
 **✅ Accomplished**:
-*   Updated `src/middleware.ts` to use `String(decision.ip)`.
+*   Updated `src/middleware.ts` to use `String(decision.ip.toString())`.
 *   Forced git sync (`push --force`) to `feature/workflow-protocol`.
 *   Verified commit hash update.
 **🚧 Next Steps**:

@@ -30,7 +30,7 @@ const aj = arcjet({
 export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent, next: any) => {
     const decision = await aj.protect(req);
 
-    // Extracción segura del fingerprint (evita errores de objeto undefined)
+    // Extracción segura del fingerprint
     const fingerprint = typeof (decision as any).fingerprint === 'string'
         ? (decision as any).fingerprint
         : "unknown";
@@ -52,7 +52,7 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
 
         // Lógica de Telemetría Blindada
         try {
-            // CORRECCIÓN CRÍTICA: ArcjetIpDetails a String
+            // CORRECCIÓN PARA VERCEL: Convertimos el objeto IP de Arcjet a String plano
             const ipAddress = decision.ip ? String(decision.ip) : "127.0.0.1";
 
             await logSecurityEvent({
@@ -74,7 +74,7 @@ export default createMiddleware(aj, async (req: NextRequest, ctx: NextFetchEvent
         );
     }
 
-    // Petición Permitida - Inyectar header de identidad para la UI
+    // Petición Permitida - Inyectar header para que la App reconozca al usuario
     const res = await next();
     if (res instanceof NextResponse) {
         res.headers.set("x-arcjet-fingerprint", fingerprint);
