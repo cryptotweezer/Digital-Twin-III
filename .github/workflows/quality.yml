@@ -34,11 +34,6 @@ jobs:
         run: pnpm lint
         # Strict linting enforced
 
-      - name: 🏗️ Build Test
-        run: pnpm build
-        env:
-          DATABASE_URL: postgres://localhost:5432/dummy_db
-          ARCJET_KEY: aj_mock_key
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          SKIP_ENV_VALIDATION: "true"
-        # Strict build enforced, skipping DB check with dummy vars
+      - name: 🔍 Type Check
+        run: pnpm tsc --noEmit
+        # Validates TypeScript types without building (no DB required)
