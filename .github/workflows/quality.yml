@@ -35,5 +35,10 @@ jobs:
         # Strict linting enforced
 
       - name: 🏗️ Build Test
-        run: NEXT_PHASE=phase-production-build SKIP_ENV_VALIDATION=true pnpm build
-        # Strict build enforced, skipping DB check
+        run: pnpm build
+        env:
+          DATABASE_URL: postgres://localhost:5432/dummy_db
+          ARCJET_KEY: aj_mock_key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          SKIP_ENV_VALIDATION: "true"
+        # Strict build enforced, skipping DB check with dummy vars
