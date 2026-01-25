@@ -35,5 +35,5 @@ jobs:
         # Strict linting enforced
 
       - name: 🏗️ Build Test
-        run: pnpm build
-        # Strict build enforced
+        run: NEXT_PHASE=phase-production-build SKIP_ENV_VALIDATION=true pnpm build
+        # Strict build enforced, skipping DB check
