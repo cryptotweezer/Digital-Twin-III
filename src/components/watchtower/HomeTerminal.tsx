@@ -9,9 +9,9 @@ import Footer from "@/components/watchtower/Footer";
 interface SecurityEvent {
     id: string;
     eventType: string;
-    ipAddress: string;
+    ipAddress: string | null;
     actionTaken: string;
-    timestamp: string;
+    timestamp: Date | string;
 }
 
 interface HomeTerminalProps {
@@ -19,9 +19,9 @@ interface HomeTerminalProps {
     recentEvents: SecurityEvent[];
     identity: {
         alias: string;
-        fingerprint: string;
+        fingerprint: string | null;
         riskScore: number;
-        ip: string;
+        ip: string | null;
     };
 }
 
@@ -56,9 +56,9 @@ export default function HomeTerminal({ threatCount, recentEvents, identity }: Ho
                     <div className="w-full mt-4">
                         <IdentityHUD
                             alias={identity.alias}
-                            fingerprint={identity.fingerprint}
+                            fingerprint={identity.fingerprint || "unknown"}
                             riskScore={identity.riskScore}
-                            ip={identity.ip}
+                            ip={identity.ip || "unknown"}
                         />
                     </div>
                 </div>
@@ -93,7 +93,7 @@ export default function HomeTerminal({ threatCount, recentEvents, identity }: Ho
                                     <div key={event.id} className="flex justify-between items-start border-l-2 border-red-500 pl-4 py-1">
                                         <div>
                                             <p className="font-mono text-red-400 text-sm font-bold">{event.eventType}</p>
-                                            <p className="text-xs text-neutral-500">{event.ipAddress}</p>
+                                            <p className="text-xs text-neutral-500">{event.ipAddress || "Unknown IP"}</p>
                                         </div>
                                         <div className="text-right">
                                             <span className="text-xs font-mono px-2 py-1 rounded bg-neutral-800 text-neutral-300">{event.actionTaken}</span>
