@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 import Gatekeeper from "@/components/watchtower/Gatekeeper";
 import IdentityHUD from "@/components/watchtower/IdentityHUD";
 import Briefing from "@/components/watchtower/Briefing";
@@ -27,6 +28,47 @@ interface HomeTerminalProps {
 
 export default function HomeTerminal({ threatCount, recentEvents, identity }: HomeTerminalProps) {
     const [accessGranted, setAccessGranted] = useState(false);
+
+    const [aiResponse, setAiResponse] = useState("");
+
+    // Manual Stream Implementation (Plan C)
+    const startSentinel = async () => {
+        setAiResponse("");
+        try {
+            const response = await fetch('/api/sentinel', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: "Initialize system. Report status.",
+                    eventType: 'System Handshake',
+                    fingerprint: identity.fingerprint,
+                    ipAddress: identity.ip,
+                    location: "Australia/Sydney",
+                    threatLevel: identity.riskScore > 50 ? "High" : "Low"
+                })
+            });
+
+            if (!response.body) return;
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                setAiResponse((prev) => prev + decoder.decode(value, { stream: true }));
+            }
+        } catch (err) {
+            console.error("Sentinel Downlink Failed:", err);
+            setAiResponse(">> CONNECTION LOST <<");
+        }
+    };
+
+    // Trigger AI Welcome on Handshake
+    useEffect(() => {
+        if (accessGranted) {
+            startSentinel();
+        }
+    }, [accessGranted]);
 
     return (
         <>
@@ -82,12 +124,14 @@ export default function HomeTerminal({ threatCount, recentEvents, identity }: Ho
 
                     {/* Live Feed */}
                     <div className="group rounded-lg border border-transparent px-5 py-4 transition-colors border-neutral-800 bg-neutral-900/50">
-                        <h2 className={`mb-3 text-2xl font-semibold`}>
+                        <h2 className={`mb-3 text-2xl font-semibold animate-pulse text-blue-500`}>
                             LIVE CONNECTION
                         </h2>
                         <div className="space-y-4">
                             {recentEvents.length === 0 ? (
-                                <p className="text-neutral-500 italic">No threats detecting... yet.</p>
+                                <p className="text-neutral-200 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                                    {aiResponse || "Awaiting Sentinel downlink..."}
+                                </p>
                             ) : (
                                 recentEvents.map((event) => (
                                     <div key={event.id} className="flex justify-between items-start border-l-2 border-red-500 pl-4 py-1">
