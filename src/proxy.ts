@@ -1,14 +1,15 @@
 
 import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/next";
 import { NextResponse } from "next/server";
-import type { NextRequest, NextFetchEvent } from "next/server";
+import type { NextRequest } from "next/server";
 
 export const config = {
     // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
     matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-export async function middleware(req: NextRequest, _ctx: NextFetchEvent) {
+// Next.js 16 Proxy Export Convention
+export default async function proxy(req: NextRequest) {
     try {
         // 1. Extreme Key Validation & Bypass
         const ajKey = process.env.ARCJET_KEY;
@@ -17,13 +18,16 @@ export async function middleware(req: NextRequest, _ctx: NextFetchEvent) {
             return NextResponse.next();
         }
 
-        // 2. Lazy Initialization (Inside try block)
+        // 2. Initialize Arcjet (Lazy or per-request if needed, but keeping it simple here)
         const aj = arcjet({
             key: ajKey,
             rules: [
+                // Phase 2: Shield (SQLi, XSS) - Protection active
                 shield({ mode: "LIVE" }),
+                // Phase 2: Bot Detection - Strict (no allow list yet)
                 detectBot({ mode: "LIVE", allow: [] }),
-                slidingWindow({ mode: "LIVE", interval: "10m", max: 100 }),
+                // Phase 2: Rate Limiting - 60 requests / 1 min
+                slidingWindow({ mode: "LIVE", interval: "1m", max: 60 }),
             ],
         });
 
