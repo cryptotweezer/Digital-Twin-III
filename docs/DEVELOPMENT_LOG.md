@@ -218,3 +218,26 @@
 *   **Validation**: Verified build includes new static routes.
 **🚧 Next Steps**:
 *   Begin Step 4: Threat Phases (Visual Reactivity).
+
+### [2026-01-26] Session 4: The Sentinel Awakening
+**👤 Author**: Antigravity
+**🎯 Goal**: Activate 'Sentinel-02' (AI Resident) and secure the perimeter with Next.js 16 Proxy.
+**✅ Accomplished**:
+*   **Infrastructure (Phase 1 & 2)**:
+    *   Installed `ai`, `@ai-sdk/openai`, `@ai-sdk/react`.
+    *   Refactored `middleware.ts` to `src/proxy.ts` (Next.js 16 standard) with Arcjet Shield, Bot, and RateLimit.
+*   **Awareness (Phase 3)**:
+    *   Implemented `src/app/api/sentinel/route.ts` using Vercel AI SDK.
+    *   Integrated `HomeTerminal.tsx` to display real-time AI commentary.
+*   **Protocol Rescue (Phase 4)**:
+    *   **Diagnosed**: Protocol Mismatch between `toDataStreamResponse` and `useCompletion`.
+    *   **Fixed**: Implemented "Manual Stream Protocol" (Plan C) using native `fetch` and `TextDecoder` in `HomeTerminal.tsx`.
+    *   **Refined**: Updated System Prompt for "Cynical/Narrative" persona and enforced structured output (3 paragraphs).
+    *   **Styled**: "LIVE CONNECTION" pulse and `whitespace-pre-wrap` for clean terminal reports.
+*   **Quality Gate**:
+    *   Resolved complex merge conflicts with `main` (Deleted legacy `middleware.ts`, kept `proxy.ts`).
+    *   Refactored `HomeTerminal.tsx` to use Event-Driven activation, eliminating `useEffect` loops and lint warnings.
+    *   Verified clean build (`pnpm build`) and lint (`pnpm lint`).
+**🚧 Next Steps**:
+*   Begin **Task 5: Attack Lab** (Simulating SQLi and XSS to test Sentinel's reaction).
+
