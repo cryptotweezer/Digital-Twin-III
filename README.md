@@ -74,7 +74,7 @@ pnpm dev
 ## 👥 Team
 *   **Andres Henao** (`cryptotweezer@gmail.com`)
 *   **Ayush K.** (`ayushk566@gmail.com`)
-*   **Anchal** (`anchal1234asr@gmail.com`)
+*   **Anchal** (`anchal1234asr@gmail.com`) - Anchal – contributed to Week 1 repository setup and documentation
 *   **Gitaumoureen** (`gitaumoureen@yahoo.co.uk`)
 *   **Sonal Kadiyan** (`sonalkadiyan@gmail.com`)
 *   **Pjanx Andrei** (`pjanxandrei@gmail.com`)
